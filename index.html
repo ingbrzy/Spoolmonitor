@@ -180,7 +180,26 @@ body{
 /* ERROR */
 .errbox{background:rgba(255,69,58,0.08);border:0.5px solid rgba(255,69,58,0.25);border-radius:14px;padding:16px;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6}
 
-/* INSTALL BANNER */
+/* PRINTER BADGES */
+.pbadge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:700;letter-spacing:0.4px;
+  padding:2px 8px;border-radius:6px;
+  flex-shrink:0;
+}
+.pbadge.mk{background:rgba(10,132,255,0.18);color:#4da3ff;border:0.5px solid rgba(10,132,255,0.3)}
+.pbadge.xl{background:rgba(255,159,10,0.18);color:#ffb340;border:0.5px solid rgba(255,159,10,0.3)}
+
+/* PRINTER GROUP HEADER */
+.group-hdr{
+  display:flex;align-items:center;gap:10px;
+  margin:18px 0 10px;
+}
+.group-hdr:first-child{margin-top:0}
+.group-line{flex:1;height:0.5px;background:rgba(255,255,255,0.1)}
+.group-lbl{font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;white-space:nowrap}
+.group-lbl.mk{color:#4da3ff}
+.group-lbl.xl{color:#ffb340}
 .install-banner{
   margin-bottom:14px;padding:12px 16px;
   background:rgba(10,132,255,0.12);border:0.5px solid rgba(10,132,255,0.3);
@@ -301,7 +320,22 @@ function ago(m){
   return Math.round(m/60)+' hod';
 }
 
-// PWA install prompt (Android Chrome)
+// Printer label mapping from screenshot
+const PRINTER_MAP = {
+  'spool-01':   {label:'PRUSA MK3S 01', type:'mk'},
+  'spool-02':   {label:'PRUSA MK3S 02', type:'mk'},
+  'spool-03':   {label:'PRUSA MK3S 03', type:'mk'},
+  'spool-04':   {label:'PRUSA MK4S 04', type:'mk'},
+  'spool-05':   {label:'PRUSA MK4S 05', type:'mk'},
+  'spool-XL01': {label:'PRUSA XL01',    type:'xl'},
+  'spool-XL02': {label:'PRUSA XL02',    type:'xl'},
+  'spool-XL03': {label:'PRUSA XL03',    type:'xl'},
+  'spool-XL04': {label:'PRUSA XL04',    type:'xl'},
+  'spool-XL05': {label:'PRUSA XL05',    type:'xl'},
+};
+function printerInfo(id){
+  return PRINTER_MAP[id] || {label: id, type: id.toLowerCase().includes('xl') ? 'xl' : 'mk'};
+}
 window.addEventListener('beforeinstallprompt',e=>{
   e.preventDefault(); deferredPrompt=e;
   document.getElementById('install-wrap').innerHTML=`
@@ -377,17 +411,27 @@ function render(){
   document.getElementById('ptot').textContent=DATA.length;
   document.getElementById('pok').textContent=DATA.filter(s=>s.length>3).length;
   document.getElementById('plow').textContent=DATA.filter(s=>alarmOn&&s.length>0&&s.length<=3).length;
-  document.getElementById('list').innerHTML=sorted.map((s,i)=>{
+
+  // Group by printer type, but keep alarm items at top regardless
+  var alarmItems  = sorted.filter(s=>alarmOn&&s.length>0&&s.length<=3);
+  var mkItems     = sorted.filter(s=>!alarmItems.includes(s)&&!printerInfo(s.id).type.includes('xl'));
+  var xlItems     = sorted.filter(s=>!alarmItems.includes(s)&&printerInfo(s.id).type==='xl');
+
+  function makeCard(s,i){
     var p=pct(s.weight,s.id),c='#'+s.color,col=pc(p);
     var isLow=alarmOn&&s.length>0&&s.length<=3;
     var isEmpty=!s.material||s.weight<=0;
     var tstr=s.temp!==null?s.temp.toFixed(1)+'°C':'—';
+    var pi=printerInfo(s.id);
     var dot=isEmpty?'<span class="dem"></span>':isLow?'<span class="dlow"></span>':'<span class="dok"></span>';
     return`<div class="card${isLow?' low':''}${isEmpty?' empty':''}" style="animation-delay:${i*0.04}s" onclick="openDet('${s.id}')">
       <div class="cbar" style="background:${c}"></div>
       <div class="ctop">
         <div>
-          <div class="cname">${s.material||'Prázdny stojan'} <span style="font-weight:400;font-size:12px;color:rgba(255,255,255,0.32)">${s.id}</span></div>
+          <div class="cname" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            <span>${s.material||'Prázdny stojan'}</span>
+            <span class="pbadge ${pi.type}">${pi.label}</span>
+          </div>
           <div class="cid-lbl">${ago(s.ago)} ago</div>
         </div>
         <div><div class="cwv">${s.weight.toFixed(0)}</div><div class="cwu">g zostáva</div></div>
@@ -398,16 +442,43 @@ function render(){
         ${isLow?'<span class="blow">MÁLO</span>':dot}
       </div>
     </div>`;
-  }).join('');
+  }
+
+  var html = '';
+
+  // Alarm items first (no group header)
+  if(alarmItems.length){
+    html += alarmItems.map((s,i)=>makeCard(s,i)).join('');
+  }
+
+  // MK group
+  if(mkItems.length){
+    var offset = alarmItems.length;
+    html += `<div class="group-hdr"><div class="group-line"></div><span class="group-lbl mk">MK3S &amp; MK4S</span><div class="group-line"></div></div>`;
+    html += mkItems.map((s,i)=>makeCard(s,offset+i)).join('');
+  }
+
+  // XL group
+  if(xlItems.length){
+    var offset2 = alarmItems.length + mkItems.length;
+    html += `<div class="group-hdr"><div class="group-line"></div><span class="group-lbl xl">PRUSA XL</span><div class="group-line"></div></div>`;
+    html += xlItems.map((s,i)=>makeCard(s,offset2+i)).join('');
+  }
+
+  document.getElementById('list').innerHTML = html;
 }
 
 function renderH(){
-  document.getElementById('hlist').innerHTML=[...DATA].sort((a,b)=>a.id.localeCompare(b.id)).map((s,i)=>`
-    <div class="hrow" style="animation-delay:${i*0.04}s" onclick="openDet('${s.id}')">
+  document.getElementById('hlist').innerHTML=[...DATA].sort((a,b)=>a.id.localeCompare(b.id)).map((s,i)=>{
+    var pi=printerInfo(s.id);
+    return`<div class="hrow" style="animation-delay:${i*0.04}s" onclick="openDet('${s.id}')">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:12px;height:12px;border-radius:50%;background:#${s.color};flex-shrink:0"></div>
         <div>
-          <div style="font-size:14px;font-weight:600;color:#fff">${s.id}</div>
+          <div style="font-size:14px;font-weight:600;color:#fff;display:flex;align-items:center;gap:6px">
+            ${pi.label}
+            <span class="pbadge ${pi.type}" style="font-size:9px;padding:1px 6px">${pi.type==='xl'?'XL':'MK'}</span>
+          </div>
           <div style="font-size:11px;color:rgba(255,255,255,0.32)">${s.material||'—'} · ${ago(s.ago)} ago</div>
         </div>
       </div>
@@ -415,19 +486,22 @@ function renderH(){
         <div style="font-size:16px;font-weight:700;color:#fff">${s.weight.toFixed(0)} g</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.32)">${s.length.toFixed(0)} m</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function openDet(id){
   var s=DATA.find(x=>x.id===id); if(!s) return;
   var p=pct(s.weight,s.id),c='#'+s.color,col=pc(p),full=fw(s.id);
+  var pi=printerInfo(s.id);
   document.getElementById('ddot').style.background=c;
   document.getElementById('dtitle').textContent=s.material||'Prázdny stojan';
-  document.getElementById('dsub').textContent=s.id;
+  document.getElementById('dsub').innerHTML=`<span class="pbadge ${pi.type}" style="margin:0 auto 2px;display:inline-flex">${pi.label}</span>`;
   document.getElementById('dbigw').textContent=s.weight.toFixed(0);
   document.getElementById('dfill').style.cssText='width:'+p+'%;background:'+col;
   document.getElementById('dtlbl').textContent=full+' g plná';
   document.getElementById('dstats').innerHTML=[
+    ['Tlačiareň', `<span class="pbadge ${pi.type}">${pi.label}</span>`],
     ['Materiál',s.material||'—'],
     ['Farba','<span style="color:'+c+'">&#9608; #'+s.color+'</span>'],
     ['Zostatok',s.weight.toFixed(1)+' g / '+s.length.toFixed(1)+' m'],
