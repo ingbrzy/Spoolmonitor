@@ -258,7 +258,7 @@ body{
         <span class="sv" style="font-size:11px">AKfycbxS4NwE3xjQ3...exec</span>
       </div>
       <div class="srow"><span class="sl">Stav</span><span class="sv" id="connst">—</span></div>
-      <div class="srow"><span class="sl">Verzia</span><span class="sv">1.0 PWA</span></div>
+      <div class="srow"><span class="sl">Verzia</span><span class="sv">1.1 PWA</span></div>
     </div>
     <div style="height:8px"></div>
     <button class="setbtn" onclick="load()">&#8635;&nbsp; Obnoviť dáta</button>
@@ -305,7 +305,7 @@ body{
 const GS='https://script.google.com/macros/s/AKfycbxS4NwE3xjQ3LIV1hUtiTYGum5mFwT2xUlNcbBVoNR6_KAcekjFLY9emtdHNDQ4nsXn/exec';
 let DATA=[],autoOn=false,alarmOn=true,timer=null,deferredPrompt=null;
 
-function fw(id){return id&&id.toLowerCase().includes('xl')?2000:1000;}
+function fw(id){return 1000;}
 function pct(w,id){return Math.min(100,Math.max(0,Math.round(w/fw(id)*100)));}
 function pc(p){return p<=10?'#ff453a':p<=30?'#ff9f0a':'#30d158';}
 function sf(v){
@@ -387,6 +387,18 @@ async function load(){
       hum:r[7]&&r[7]!=='-'?sf(r[7]):null,
       ago:r[8]?Math.round((Date.now()-new Date(r[8]).getTime())/60000):null
     })).filter(s=>s.id);
+
+    // Zdieľaj teplotu/vlhkosť z XL05 pre všetky XL cievky
+    var xl05=DATA.find(s=>s.id==='spool-XL05');
+    if(xl05&&(xl05.temp!==null||xl05.hum!==null)){
+      DATA.forEach(s=>{
+        if(printerInfo(s.id).type==='xl'&&s.id!=='spool-XL05'){
+          s.temp=xl05.temp;
+          s.hum=xl05.hum;
+          s.tempShared=true;
+        }
+      });
+    }
     render(); renderH();
     var n=new Date();
     document.getElementById('hsub').textContent='Aktualizované '+n.getHours()+':'+String(n.getMinutes()).padStart(2,'0');
@@ -511,9 +523,10 @@ function openDet(id){
   ].map(([l,v])=>`<div class="drow"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('');
   var tstr=s.temp!==null?s.temp.toFixed(1)+' °C':'—';
   var hstr=s.hum!==null?s.hum.toFixed(1)+' %':'—';
+  var sharedNote=s.tempShared?'<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">zo spool-XL05</div>':'';
   document.getElementById('denv').innerHTML=`
-    <div class="envp"><div style="font-size:22px">&#9728;</div><div class="envv">${tstr}</div><div class="envl">Teplota</div></div>
-    <div class="envp"><div style="font-size:22px">&#128167;</div><div class="envv">${hstr}</div><div class="envl">Vlhkosť</div></div>`;
+    <div class="envp"><div style="font-size:22px">&#9728;</div><div class="envv">${tstr}</div><div class="envl">Teplota</div>${sharedNote}</div>
+    <div class="envp"><div style="font-size:22px">&#128167;</div><div class="envv">${hstr}</div><div class="envl">Vlhkosť</div>${sharedNote}</div>`;
   document.getElementById('dts').textContent='Posledná aktualizácia: '+ago(s.ago)+' ago';
   document.getElementById('det').classList.add('on');
 }
