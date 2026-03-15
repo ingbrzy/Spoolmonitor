@@ -523,7 +523,6 @@ function openDet(id){
   ].map(([l,v])=>`<div class="drow"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('');
   var tstr=s.temp!==null?s.temp.toFixed(1)+' °C':'—';
   var hstr=s.hum!==null?s.hum.toFixed(1)+' %':'—';
-  var sharedNote=s.tempShared?'<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px">zo spool-XL05</div>':'';
   document.getElementById('denv').innerHTML=`
     <div class="envp"><div style="font-size:22px">&#9728;</div><div class="envv">${tstr}</div><div class="envl">Teplota</div>${sharedNote}</div>
     <div class="envp"><div style="font-size:22px">&#128167;</div><div class="envv">${hstr}</div><div class="envl">Vlhkosť</div>${sharedNote}</div>`;
