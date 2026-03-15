@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SpoolMon">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="manifest" href="manifest.json">
+<title>Spool Monitor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#0a0a0f;overscroll-behavior:none}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',sans-serif;
+  background:#0a0a0f;color:#fff;
+  display:flex;flex-direction:column;height:100%;
+  overflow:hidden;
+}
+
+/* STATUS BAR — iba safe area spacer, bez fake ikon */
+.status-bar{
+  height:env(safe-area-inset-top);
+  flex-shrink:0;
+}
+
+/* HEADER */
+.app-header{
+  padding:4px 20px 12px;
+  display:flex;justify-content:space-between;align-items:flex-start;
+  flex-shrink:0;
+  border-bottom:0.5px solid rgba(255,255,255,0.07);
+}
+.htitle{font-size:28px;font-weight:700;color:#fff;letter-spacing:-0.5px}
+.hsub{font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px}
+.rbtn{
+  width:34px;height:34px;background:rgba(255,255,255,0.1);border-radius:50%;
+  border:none;color:#fff;font-size:17px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  margin-top:4px;flex-shrink:0;
+}
+.rbtn:active{opacity:0.6}
+.rbtn.spin{animation:sp 0.7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* SCROLL */
+.scroll-area{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling:touch;
+}
+
+/* PILLS */
+.pills{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px}
+.pill{background:rgba(255,255,255,0.07);border-radius:14px;padding:10px 12px;text-align:center}
+.pv{font-size:22px;font-weight:700;color:#fff}
+.pl{font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px}
+.stitle{font-size:12px;font-weight:600;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px}
+
+/* CARDS */
+.card{
+  background:rgba(255,255,255,0.06);border-radius:20px;
+  padding:14px 16px 14px 20px;margin-bottom:10px;
+  border:0.5px solid rgba(255,255,255,0.08);
+  cursor:pointer;position:relative;overflow:hidden;
+  animation:rise 0.4s cubic-bezier(.34,1.4,.64,1) both;
+}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.card:active{background:rgba(255,255,255,0.1)}
+.card.low{border-color:rgba(255,69,58,0.4);background:rgba(255,69,58,0.07)}
+.card.empty{opacity:0.42}
+.cbar{position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:20px 0 0 20px}
+.ctop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px}
+.cname{font-size:15px;font-weight:600;color:#fff;line-height:1.2}
+.cid-lbl{font-size:11px;color:rgba(255,255,255,0.32);margin-top:2px}
+.cwv{font-size:18px;font-weight:700;color:#fff;text-align:right;font-variant-numeric:tabular-nums}
+.cwu{font-size:11px;color:rgba(255,255,255,0.38);text-align:right;margin-top:1px}
+.track{height:5px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.fill{height:100%;border-radius:3px;transition:width 0.9s cubic-bezier(.4,0,.2,1)}
+.cbot{display:flex;justify-content:space-between;align-items:center}
+.meta{font-size:11px;color:rgba(255,255,255,0.38)}
+.metav{color:rgba(255,255,255,0.62);font-weight:500}
+.blow{background:rgba(255,69,58,0.18);color:#ff453a;font-size:10px;font-weight:600;padding:3px 8px;border-radius:8px}
+.dok{width:8px;height:8px;border-radius:50%;background:#30d158;display:inline-block}
+.dlow{width:8px;height:8px;border-radius:50%;background:#ff453a;display:inline-block;animation:pu 1.2s infinite}
+.dem{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.2);display:inline-block}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:0.25}}
+
+/* TAB BAR */
+.tabbar{
+  display:flex;justify-content:space-around;
+  padding:8px 0 max(env(safe-area-inset-bottom),10px);
+  border-top:0.5px solid rgba(255,255,255,0.08);
+  background:rgba(10,10,15,0.97);
+  flex-shrink:0;
+}
+.tab{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  cursor:pointer;padding:4px 20px;border:none;background:none;
+  opacity:0.35;transition:opacity 0.2s,transform 0.15s;
+}
+.tab.on{opacity:1}
+.tab:active{transform:scale(0.86)}
+.ticon{font-size:22px}
+.tlbl{font-size:10px;font-weight:500;color:#fff;letter-spacing:0.2px}
+
+/* LOADING */
+.ov{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(10,10,15,0.93);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top-color:#fff;border-radius:50%;animation:sp 0.75s linear infinite;margin-bottom:12px}
+.ltxt{color:rgba(255,255,255,0.55);font-size:14px}
+
+/* DETAIL PANEL */
+.det{
+  position:fixed;inset:0;z-index:50;
+  background:#0a0a0f;
+  display:flex;flex-direction:column;
+  transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.32,0.72,0,1);
+  padding-top:env(safe-area-inset-top);
+}
+.det.on{transform:translateY(0)}
+.det-inner{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:max(env(safe-area-inset-bottom),20px)}
+.dback{
+  position:absolute;
+  top:calc(env(safe-area-inset-top) + 10px);
+  left:16px;z-index:2;
+  background:rgba(255,255,255,0.1);border:none;border-radius:50%;
+  width:34px;height:34px;color:#fff;font-size:22px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.dback:active{opacity:0.6}
+.ddot{width:64px;height:64px;border-radius:50%;margin:calc(env(safe-area-inset-top) + 56px) auto 14px;border:3px solid rgba(255,255,255,0.12)}
+.dtitle{font-size:26px;font-weight:700;color:#fff;text-align:center}
+.dsub{font-size:13px;color:rgba(255,255,255,0.38);text-align:center;margin-top:3px}
+.dbigw{font-size:52px;font-weight:700;color:#fff;text-align:center;letter-spacing:-2px;margin-top:16px}
+.dbigwu{font-size:15px;color:rgba(255,255,255,0.38);text-align:center}
+.dtrack{height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;margin:16px 20px 4px}
+.dfill{height:100%;border-radius:4px}
+.dlbl{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,0.28);margin:0 20px 16px}
+.dstats{margin:0 20px;background:rgba(255,255,255,0.05);border-radius:16px;overflow:hidden}
+.drow{display:flex;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid rgba(255,255,255,0.06)}
+.drow:last-child{border-bottom:none}
+.dl{font-size:13px;color:rgba(255,255,255,0.42)}
+.dv{font-size:13px;color:#fff;font-weight:500;text-align:right;max-width:58%}
+.envg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 20px}
+.envp{background:rgba(255,255,255,0.05);border-radius:14px;padding:16px;text-align:center}
+.envv{font-size:22px;font-weight:600;color:#fff;margin-top:4px}
+.envl{font-size:11px;color:rgba(255,255,255,0.32);margin-top:3px}
+.dts{font-size:11px;color:rgba(255,255,255,0.22);text-align:center;margin:12px 20px 8px}
+
+/* HISTORY */
+.hrow{
+  background:rgba(255,255,255,0.05);border-radius:14px;padding:13px 14px;
+  margin-bottom:8px;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+  border:0.5px solid rgba(255,255,255,0.07);
+  animation:rise 0.35s cubic-bezier(.34,1.4,.64,1) both;
+}
+.hrow:active{background:rgba(255,255,255,0.09)}
+
+/* SETTINGS */
+.scard{background:rgba(255,255,255,0.05);border-radius:16px;overflow:hidden;margin-bottom:12px}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:0.5px solid rgba(255,255,255,0.06)}
+.srow:last-child{border-bottom:none}
+.sl{font-size:14px;color:#fff}
+.sv{font-size:13px;color:rgba(255,255,255,0.38);text-align:right;max-width:60%;word-break:break-all}
+.tog{width:44px;height:26px;background:#30d158;border-radius:13px;position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0}
+.togth{width:22px;height:22px;background:#fff;border-radius:50%;position:absolute;top:2px;right:2px;transition:right 0.2s}
+.tog.off{background:rgba(255,255,255,0.12)}
+.tog.off .togth{right:20px}
+.setbtn{width:100%;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.14);border-radius:12px;padding:14px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit}
+.setbtn:active{background:rgba(255,255,255,0.12)}
+
+/* ERROR */
+.errbox{background:rgba(255,69,58,0.08);border:0.5px solid rgba(255,69,58,0.25);border-radius:14px;padding:16px;font-size:13px;color:rgba(255,255,255,0.6);line-height:1.6}
+
+/* INSTALL BANNER */
+.install-banner{
+  margin-bottom:14px;padding:12px 16px;
+  background:rgba(10,132,255,0.12);border:0.5px solid rgba(10,132,255,0.3);
+  border-radius:14px;display:flex;align-items:center;gap:12px;cursor:pointer;
+}
+.install-banner:active{background:rgba(10,132,255,0.2)}
+</style>
+</head>
+<body>
+
+<div class="status-bar"></div>
+
+<div class="app-header">
+  <div>
+    <div class="htitle">Spool Monitor</div>
+    <div class="hsub" id="hsub">Načítavam...</div>
+  </div>
+  <button class="rbtn" id="rb" onclick="load()">&#8635;</button>
+</div>
+
+<div class="scroll-area" id="scroll">
+
+  <div id="vpools">
+    <div id="install-wrap"></div>
+    <div class="pills">
+      <div class="pill"><div class="pv" id="ptot">—</div><div class="pl">Cievok</div></div>
+      <div class="pill"><div class="pv" id="pok">—</div><div class="pl">OK</div></div>
+      <div class="pill"><div class="pv" id="plow">—</div><div class="pl">Málo</div></div>
+    </div>
+    <div class="stitle">Všetky cievky</div>
+    <div id="list"></div>
+  </div>
+
+  <div id="vhist" style="display:none">
+    <div class="stitle" style="margin-top:4px">Posledné záznamy</div>
+    <div id="hlist"></div>
+  </div>
+
+  <div id="vset" style="display:none">
+    <div class="stitle" style="margin-top:4px">Systém</div>
+    <div class="scard">
+      <div class="srow">
+        <span class="sl">Automatické obnovenie</span>
+        <div class="tog" id="autotog" onclick="toggleAuto()"><div class="togth"></div></div>
+      </div>
+      <div class="srow"><span class="sl">Interval</span><span class="sv" id="ivlbl">vypnuté</span></div>
+      <div class="srow">
+        <span class="sl">Alarm — málo filament</span>
+        <div class="tog" id="almtog" onclick="toggleAlarm()"><div class="togth"></div></div>
+      </div>
+    </div>
+    <div class="stitle">Zdroj dát</div>
+    <div class="scard">
+      <div class="srow" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span class="sl">Google Sheets Script</span>
+        <span class="sv" style="font-size:11px">AKfycbxS4NwE3xjQ3...exec</span>
+      </div>
+      <div class="srow"><span class="sl">Stav</span><span class="sv" id="connst">—</span></div>
+      <div class="srow"><span class="sl">Verzia</span><span class="sv">1.0 PWA</span></div>
+    </div>
+    <div style="height:8px"></div>
+    <button class="setbtn" onclick="load()">&#8635;&nbsp; Obnoviť dáta</button>
+  </div>
+
+</div>
+
+<div class="tabbar">
+  <button class="tab on" id="ts" onclick="sw('pools')">
+    <span class="ticon">&#11042;</span><span class="tlbl">Cievky</span>
+  </button>
+  <button class="tab" id="th" onclick="sw('hist')">
+    <span class="ticon">&#9202;</span><span class="tlbl">História</span>
+  </button>
+  <button class="tab" id="tst" onclick="sw('set')">
+    <span class="ticon">&#9881;</span><span class="tlbl">Nastavenia</span>
+  </button>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div class="ov" id="ov">
+  <div class="spinner"></div>
+  <div class="ltxt" id="ltxt">Pripájam sa na Sheets...</div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="det" id="det">
+  <button class="dback" onclick="closeDet()">&#8249;</button>
+  <div class="det-inner">
+    <div class="ddot" id="ddot"></div>
+    <div class="dtitle" id="dtitle"></div>
+    <div class="dsub" id="dsub"></div>
+    <div class="dbigw" id="dbigw"></div>
+    <div class="dbigwu">gramov zostáva</div>
+    <div class="dtrack"><div class="dfill" id="dfill"></div></div>
+    <div class="dlbl"><span>0 g</span><span id="dtlbl"></span></div>
+    <div class="dstats" id="dstats"></div>
+    <div class="envg" id="denv"></div>
+    <div class="dts" id="dts"></div>
+  </div>
+</div>
+
+<script>
+const GS='https://script.google.com/macros/s/AKfycbxS4NwE3xjQ3LIV1hUtiTYGum5mFwT2xUlNcbBVoNR6_KAcekjFLY9emtdHNDQ4nsXn/exec';
+let DATA=[],autoOn=false,alarmOn=true,timer=null,deferredPrompt=null;
+
+function fw(id){return id&&id.toLowerCase().includes('xl')?2000:1000;}
+function pct(w,id){return Math.min(100,Math.max(0,Math.round(w/fw(id)*100)));}
+function pc(p){return p<=10?'#ff453a':p<=30?'#ff9f0a':'#30d158';}
+function sf(v){
+  if(v===null||v===undefined||v===''||v==='-') return null;
+  var n=parseFloat(v.toString().replace(',','.'));
+  return isNaN(n)?null:Math.round(n*10)/10;
+}
+function ago(m){
+  if(m===null||m===undefined) return '—';
+  if(m<2) return 'práve teraz';
+  if(m<60) return m+' min';
+  return Math.round(m/60)+' hod';
+}
+
+// PWA install prompt (Android Chrome)
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
+  document.getElementById('install-wrap').innerHTML=`
+    <div class="install-banner" onclick="installPWA()">
+      <div style="font-size:20px">&#43;</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:#fff">Pridať na plochu</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">Nainštalovať ako aplikáciu</div>
+      </div>
+      <div style="font-size:13px;color:rgba(10,132,255,0.9)">Inštalovať</div>
+    </div>`;
+});
+function installPWA(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{deferredPrompt=null;document.getElementById('install-wrap').innerHTML='';});
+}
+window.addEventListener('appinstalled',()=>{document.getElementById('install-wrap').innerHTML='';});
+
+// JSONP loader — same method as working spool.html
+function jsonp(url){
+  return new Promise((resolve,reject)=>{
+    var cb='_sm_'+Date.now();
+    var sc=document.createElement('script');
+    var to=setTimeout(()=>{cleanup();reject(new Error('Timeout (12s)'));},12000);
+    window[cb]=d=>{cleanup();resolve(d);};
+    sc.onerror=()=>{cleanup();reject(new Error('Script load error'));};
+    sc.src=url+'?action=dashboard&callback='+cb;
+    document.head.appendChild(sc);
+    function cleanup(){clearTimeout(to);delete window[cb];if(sc.parentNode)sc.remove();}
+  });
+}
+
+async function load(){
+  var rb=document.getElementById('rb');
+  rb.classList.add('spin');
+  document.getElementById('ov').style.display='flex';
+  document.getElementById('ltxt').textContent='Načítavam zo Sheets...';
+  try{
+    var j=await jsonp(GS);
+    if(!j.rows) throw new Error('Neplatná odpoveď — chýba pole rows');
+    DATA=j.rows.map(r=>({
+      id:r[0]||'',nfc:r[1]||'—',
+      material:r[2]||'',
+      color:(r[3]||'333344').toString().replace('#',''),
+      weight:sf(r[4])||0,
+      length:sf(r[5])||0,
+      temp:r[6]&&r[6]!=='-'?sf(r[6]):null,
+      hum:r[7]&&r[7]!=='-'?sf(r[7]):null,
+      ago:r[8]?Math.round((Date.now()-new Date(r[8]).getTime())/60000):null
+    })).filter(s=>s.id);
+    render(); renderH();
+    var n=new Date();
+    document.getElementById('hsub').textContent='Aktualizované '+n.getHours()+':'+String(n.getMinutes()).padStart(2,'0');
+    document.getElementById('connst').textContent='Pripojené ✓';
+    document.getElementById('connst').style.color='#30d158';
+  }catch(e){
+    document.getElementById('hsub').textContent='Chyba pripojenia';
+    document.getElementById('connst').textContent='Chyba';
+    document.getElementById('connst').style.color='#ff453a';
+    document.getElementById('list').innerHTML=`<div class="errbox"><strong style="color:#ff453a;display:block;margin-bottom:6px">Chyba načítania</strong>${e.message}</div>`;
+  }
+  document.getElementById('ov').style.display='none';
+  rb.classList.remove('spin');
+}
+
+function render(){
+  var sorted=[...DATA].sort((a,b)=>{
+    var al=alarmOn&&a.length>0&&a.length<=3?-1:0;
+    var bl=alarmOn&&b.length>0&&b.length<=3?-1:0;
+    return al-bl||a.id.localeCompare(b.id);
+  });
+  document.getElementById('ptot').textContent=DATA.length;
+  document.getElementById('pok').textContent=DATA.filter(s=>s.length>3).length;
+  document.getElementById('plow').textContent=DATA.filter(s=>alarmOn&&s.length>0&&s.length<=3).length;
+  document.getElementById('list').innerHTML=sorted.map((s,i)=>{
+    var p=pct(s.weight,s.id),c='#'+s.color,col=pc(p);
+    var isLow=alarmOn&&s.length>0&&s.length<=3;
+    var isEmpty=!s.material||s.weight<=0;
+    var tstr=s.temp!==null?s.temp.toFixed(1)+'°C':'—';
+    var dot=isEmpty?'<span class="dem"></span>':isLow?'<span class="dlow"></span>':'<span class="dok"></span>';
+    return`<div class="card${isLow?' low':''}${isEmpty?' empty':''}" style="animation-delay:${i*0.04}s" onclick="openDet('${s.id}')">
+      <div class="cbar" style="background:${c}"></div>
+      <div class="ctop">
+        <div>
+          <div class="cname">${s.material||'Prázdny stojan'} <span style="font-weight:400;font-size:12px;color:rgba(255,255,255,0.32)">${s.id}</span></div>
+          <div class="cid-lbl">${ago(s.ago)} ago</div>
+        </div>
+        <div><div class="cwv">${s.weight.toFixed(0)}</div><div class="cwu">g zostáva</div></div>
+      </div>
+      <div class="track"><div class="fill" style="width:${p}%;background:${col}"></div></div>
+      <div class="cbot">
+        <span class="meta">Dĺžka: <span class="metav">${s.length.toFixed(0)} m</span>&nbsp;&nbsp;T: <span class="metav">${tstr}</span></span>
+        ${isLow?'<span class="blow">MÁLO</span>':dot}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderH(){
+  document.getElementById('hlist').innerHTML=[...DATA].sort((a,b)=>a.id.localeCompare(b.id)).map((s,i)=>`
+    <div class="hrow" style="animation-delay:${i*0.04}s" onclick="openDet('${s.id}')">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:12px;height:12px;border-radius:50%;background:#${s.color};flex-shrink:0"></div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#fff">${s.id}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.32)">${s.material||'—'} · ${ago(s.ago)} ago</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:700;color:#fff">${s.weight.toFixed(0)} g</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.32)">${s.length.toFixed(0)} m</div>
+      </div>
+    </div>`).join('');
+}
+
+function openDet(id){
+  var s=DATA.find(x=>x.id===id); if(!s) return;
+  var p=pct(s.weight,s.id),c='#'+s.color,col=pc(p),full=fw(s.id);
+  document.getElementById('ddot').style.background=c;
+  document.getElementById('dtitle').textContent=s.material||'Prázdny stojan';
+  document.getElementById('dsub').textContent=s.id;
+  document.getElementById('dbigw').textContent=s.weight.toFixed(0);
+  document.getElementById('dfill').style.cssText='width:'+p+'%;background:'+col;
+  document.getElementById('dtlbl').textContent=full+' g plná';
+  document.getElementById('dstats').innerHTML=[
+    ['Materiál',s.material||'—'],
+    ['Farba','<span style="color:'+c+'">&#9608; #'+s.color+'</span>'],
+    ['Zostatok',s.weight.toFixed(1)+' g / '+s.length.toFixed(1)+' m'],
+    ['Naplnenosť',p+' %'],
+    ['NFC UID','<span style="font-size:11px;font-family:monospace">'+s.nfc+'</span>'],
+    ['Posledná aktualizácia',ago(s.ago)+' ago']
+  ].map(([l,v])=>`<div class="drow"><span class="dl">${l}</span><span class="dv">${v}</span></div>`).join('');
+  var tstr=s.temp!==null?s.temp.toFixed(1)+' °C':'—';
+  var hstr=s.hum!==null?s.hum.toFixed(1)+' %':'—';
+  document.getElementById('denv').innerHTML=`
+    <div class="envp"><div style="font-size:22px">&#9728;</div><div class="envv">${tstr}</div><div class="envl">Teplota</div></div>
+    <div class="envp"><div style="font-size:22px">&#128167;</div><div class="envv">${hstr}</div><div class="envl">Vlhkosť</div></div>`;
+  document.getElementById('dts').textContent='Posledná aktualizácia: '+ago(s.ago)+' ago';
+  document.getElementById('det').classList.add('on');
+}
+function closeDet(){document.getElementById('det').classList.remove('on');}
+
+function sw(tab){
+  ['pools','hist','set'].forEach(t=>{
+    document.getElementById('t'+(t==='pools'?'s':t==='hist'?'h':'st')).classList.remove('on');
+    document.getElementById('v'+t).style.display='none';
+  });
+  ({pools:'ts',hist:'th',set:'tst'});
+  var m={pools:'ts',hist:'th',set:'tst'};
+  document.getElementById(m[tab]).classList.add('on');
+  document.getElementById('v'+tab).style.display='block';
+  document.getElementById('scroll').scrollTop=0;
+}
+
+function toggleAuto(){
+  autoOn=!autoOn;
+  document.getElementById('autotog').classList.toggle('off',!autoOn);
+  document.getElementById('ivlbl').textContent=autoOn?'60 s':'vypnuté';
+  if(timer) clearInterval(timer);
+  if(autoOn) timer=setInterval(load,60000);
+}
+function toggleAlarm(){
+  alarmOn=!alarmOn;
+  document.getElementById('almtog').classList.toggle('off',!alarmOn);
+  if(DATA.length) render();
+}
+
+// ── SERVICE WORKER ───────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+load();
+</script>
+</body>
+</html>
