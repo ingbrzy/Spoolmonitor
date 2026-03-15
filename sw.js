@@ -1,4 +1,4 @@
-const CACHE = 'spoolmon-v2';
+const CACHE = 'spoolmon-v3';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
